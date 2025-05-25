@@ -1,6 +1,7 @@
 import pygame
-from asset_manager import GAME_ASSETS # Import GAME_ASSETS
-from bullets import Bullet # Import Bullet class
+from .asset_manager import GAME_ASSETS # Import GAME_ASSETS
+from .bullets import Bullet # Import Bullet class
+from .sound_manager import play_sound # Import play_sound
 
 class Player:
     def __init__(self, x, y):
@@ -152,6 +153,7 @@ class Player:
             bullets_to_fire.append(Bullet(self.rect.centerx - base_offset_x * 2.5, self.rect.top, 0, bullet_speed_y, self.needle_bullet_image))
             bullets_to_fire.append(Bullet(self.rect.centerx + base_offset_x * 2.5, self.rect.top, 0, bullet_speed_y, self.needle_bullet_image))
         self.bullets.extend(bullets_to_fire)
+        play_sound("player_shoot_needle")
 
     def _fire_homing_shot(self):
         bullet_speed_y = -7
@@ -167,6 +169,7 @@ class Player:
             bullets_to_fire.append(Bullet(self.rect.centerx - 15, spawn_y, -base_spread_dx * 1.5, bullet_speed_y, self.homing_amulet_image))
             bullets_to_fire.append(Bullet(self.rect.centerx + 15, spawn_y, base_spread_dx * 1.5, bullet_speed_y, self.homing_amulet_image))
         self.bullets.extend(bullets_to_fire)
+        play_sound("player_shoot_amulet")
 
     def draw(self, surface, show_hitbox):
         # Blink effect: only draw if the timer is in a certain phase
