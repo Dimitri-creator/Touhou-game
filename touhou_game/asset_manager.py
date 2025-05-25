@@ -1,5 +1,6 @@
 import pygame
 import json
+from .sound_manager import load_sound # Import load_sound
 
 GAME_ASSETS = {}
 
@@ -359,6 +360,19 @@ if __name__ == '__main__':
     print("\nAsset manager test finished.")
 
 
+def preload_sfx(sfx_config):
+    """
+    Preloads sound effects based on the configuration.
+    """
+    if not sfx_config:
+        print("Error: SFX configuration is empty or not found.")
+        return
+
+    print("\nPreloading sound effects...")
+    for name, path in sfx_config.items():
+        load_sound(name, path) # name will be e.g., "player_shoot_needle"
+
+
 def preload_enemy_sprites(enemy_config):
     """
     Preloads enemy sprites based on the configuration.
@@ -461,12 +475,15 @@ if __name__ == '__main__':
     # Test preloading enemy sprites
     if config and "enemy_sprites" in config:
         preload_enemy_sprites(config["enemy_sprites"])
-        print("\nGAME_ASSETS after preloading enemy sprites:")
-        for asset_key, asset_value in GAME_ASSETS.items():
-            if asset_key.startswith("enemy_"):
-                print(f"  {asset_key}: {asset_value}")
+        # ... (print logic for item assets remains the same)
+
+    # Test preloading SFX
+    if config and "sfx" in config:
+        preload_sfx(config["sfx"])
+        # SOUND_EFFECTS dictionary is in sound_manager, not directly printed here
+        # but load_sound function prints success/failure for each
     else:
-        print("\nSkipping preload_enemy_sprites due to missing 'enemy_sprites' key in config.")
+        print("\nSkipping preload_sfx due to missing 'sfx' key in config.")
 
     print("\nTesting loading a non-existent image:")
     non_existent_image = load_image("path/to/non_existent_image.png")

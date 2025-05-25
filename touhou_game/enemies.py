@@ -53,7 +53,7 @@ class Enemy:
 
 import math # For potential future use with sine wave
 import random # For staggering shots
-from touhou_game.bullets import Bullet # Import Bullet class
+from .bullets import Bullet # Import Bullet class
 
 
 class ZakoEnemy(Enemy):
