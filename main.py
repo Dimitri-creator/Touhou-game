@@ -496,15 +496,20 @@ def main():
             is_clear = player.lives > 0 and not (kaguya_instance and kaguya_instance.alive()) # Simplified: if player alive & Kaguya gone
             # More robust check: if Kaguya was spawned and defeated, it's a clear.
             if hasattr(main, 'kaguya_was_spawned_flag_for_clear_check') and main.kaguya_was_spawned_flag_for_clear_check and \
-               not (kaguya_instance and kaguya_instance.alive()) and player.lives > 0:
+               not (kaguya_instance and kaguya_instance.alive()) and player.lives > 0: # This kaguya_was_spawned_flag_for_clear_check is not defined
                 is_clear = True
-            elif player.lives <=0:
-                is_clear = False # Definitely not a clear if player is out of lives
+            elif player.lives <=0: # player.is_alive() might be better if player can be None
+                is_clear = False 
+            
+            # Use the global kaguya_was_spawned_flag and player.is_alive() for consistent check
+            is_clear = player.is_alive() and kaguya_was_spawned_flag and not (kaguya_instance and kaguya_instance.alive())
+            if not player.is_alive():
+                 is_clear = False
 
-            draw_game_over_layout(asset_manager, is_clear)
+            draw_game_over_layout(asset_manager, is_clear, player.score) # Corrected call
 
         if screen_flash_timer > 0:
-            flash_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA) # Flash is white
+            flash_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA) 
             flash_surface.fill((255, 255, 255, screen_flash_alpha)) # White flash as base
             # Potentially change color based on source of flash if needed here
             screen.blit(flash_surface, (0,0))
