@@ -119,15 +119,18 @@ def draw_options_screen_layout(asset_manager):
     draw_text(screen, "Options", big_font, WHITE, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 6, asset_manager=asset_manager)
     draw_menu(screen, menu_options_options_page, current_menu_selection, menu_font, WHITE, SCREEN_HEIGHT // 3, asset_manager)
 
-def draw_game_over_layout(asset_manager, is_clear):
+def draw_game_over_layout(asset_manager, is_clear, player_score): # Added player_score
     screen.fill(BLACK)
     message = "Game Clear!" if is_clear else "Game Over"
     options = menu_options_game_clear if is_clear else menu_options_game_over
     
     draw_text(screen, message, big_font, WHITE, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 4, asset_manager=asset_manager)
-    # Display Score (Placeholder, needs actual score variable)
-    # score_text = f"Score: {player.score}" # Assuming player has a score attribute
-    # draw_text(screen, score_text, ui_font, WHITE, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50)
+    
+    # Display Score
+    score_text_str = f"Score: {player_score:08d}" # Use the passed player_score
+    # Calculate width for centering if draw_text doesn't handle it perfectly.
+    # score_width = ui_font.size(score_text_str)[0] if ui_font else 200 
+    draw_text(screen, score_text_str, ui_font, WHITE, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 30, asset_manager=asset_manager)
     
     draw_menu(screen, options, current_menu_selection, menu_font, WHITE, SCREEN_HEIGHT // 2 + 50, asset_manager)
 
@@ -335,7 +338,18 @@ def main():
                     enemies.add(ZakoEnemy(position=(random.randint(50, SCREEN_WIDTH - 50), 0), asset_manager=asset_manager))
 
             enemies.update() 
-            items.update() # Items might give power, score
+            
+            # --- Item Update Logic with Auto-Collection ---
+            is_player_near_top = player.rect.top < (SCREEN_HEIGHT * 0.20) 
+            player_center_for_items = player.rect.center 
+
+            for item_instance in items: 
+                if is_player_near_top:
+                    item_instance.update(player_pos=player_center_for_items, is_player_at_top=True)
+                else:
+                    item_instance.update() # Call with no args if player not at top
+            # --- End Item Update Logic ---
+            
             all_enemy_bullets.update() 
 
             for enemy in enemies: 
@@ -343,44 +357,62 @@ def main():
                 enemy.bullets.empty() 
 
             # Collision Detection
+            # Player bullets vs enemies
             for bullet in list(all_player_bullets): 
                 hit_zako = pygame.sprite.spritecollide(bullet, enemies, False, pygame.sprite.collide_rect_ratio(0.8))
                 for zako in hit_zako:
                     if bullet.alive(): bullet.kill() 
                     if zako.take_damage(1): 
+                        player.add_score(100) # Score for Zako
                         if hasattr(zako, 'dropped_item_info') and zako.dropped_item_info:
-                            items.add(create_item(zako.dropped_item_info['position'], asset_manager, zako.dropped_item_info['type']))
+                            dropped_item = create_item(zako.dropped_item_info['position'], asset_manager, zako.dropped_item_info['type'])
+                            items.add(dropped_item)
                 
-                if reisen_instance and reisen_instance.alive() and reisen_instance.is_active:
-                    if pygame.sprite.collide_rect(bullet, reisen_instance): 
+                active_boss = kaguya_instance if kaguya_instance else reisen_instance # Determine current boss
+                if active_boss and active_boss.alive() and active_boss.is_active:
+                    if pygame.sprite.collide_rect(bullet, active_boss): 
                         if bullet.alive(): bullet.kill()
-                        reisen_instance.take_damage(1)
-                
-                if kaguya_instance and kaguya_instance.alive() and kaguya_instance.is_active:
-                    if pygame.sprite.collide_rect(bullet, kaguya_instance):
-                        if bullet.alive(): bullet.kill()
-                        kaguya_instance.take_damage(1) 
+                        active_boss.take_damage(1) 
+                        player.add_score(10) # Score for hitting boss
+
+            # Player vs items
+            collided_items = pygame.sprite.spritecollide(player, items, True, pygame.sprite.collide_rect_ratio(0.8))
+            for item_obj in collided_items: 
+                if item_obj.item_type == TYPE_SCORE:
+                    player.add_score(500)
+                elif item_obj.item_type == TYPE_POWER:
+                    player.add_power(5) # Add 5 power per power item
+                elif item_obj.item_type == TYPE_BOMB:
+                    player.bombs = min(player.bombs + 1, 8) 
+
 
             player_hitbox_rect = pygame.Rect(0,0, player.hitbox_radius*2, player.hitbox_radius*2)
             player_hitbox_rect.center = player.rect.center
             
-            # Graze detection (conceptual)
-            # graze_radius_squared = (player.hitbox_radius + 5)**2 # Example graze radius
-            # for bullet in all_enemy_bullets:
-            #    dist_sq = (bullet.rect.centerx - player.rect.centerx)**2 + (bullet.rect.centery - player.rect.centery)**2
-            #    if dist_sq < graze_radius_squared and not player_hitbox_rect.colliderect(bullet.rect):
-            #        player.graze +=1 # Assuming player.graze attribute
-            #        print(f"Graze! Count: {player.graze}") # Add to UI later
+            # Graze detection
+            graze_interaction_radius = player.hitbox_radius + 15 
+            player_center_x = player.rect.centerx
+            player_center_y = player.rect.centery
 
-            for bullet in all_enemy_bullets: # Actual hit detection
+            for bullet in all_enemy_bullets:
+                if bullet.grazed_by_player: 
+                    continue
+                dist_sq = (bullet.rect.centerx - player_center_x)**2 + (bullet.rect.centery - player_center_y)**2
+                if dist_sq < (graze_interaction_radius ** 2):
+                    if not player_hitbox_rect.colliderect(bullet.rect):
+                        player.increment_graze() 
+                        bullet.grazed_by_player = True 
+            
+            # Actual Hit detection (after graze check)
+            for bullet in all_enemy_bullets: 
                 if player_hitbox_rect.colliderect(bullet.rect):
-                    if player.show_hitbox: # Only vulnerable if hitbox is shown 
+                    if player.show_hitbox: 
                         print("Player hit!")
                         bullet.kill() 
                         player.lives -= 1
-                        if player.lives <= 0:
+                        if not player.is_alive(): 
                             current_state = GAME_OVER 
-                            current_menu_selection = 0 # Reset for game over menu
+                            current_menu_selection = 0 
                         # Add invincibility frames later
 
         # Render screen
@@ -419,11 +451,32 @@ def main():
 
             # In-Game UI Text (Score, Lives, Bombs etc.)
             # Conceptual: these values would come from player object or game manager
-            # draw_text(screen, f"Score: {getattr(player, 'score', 0)}", ui_font, WHITE, 100, 10, asset_manager=asset_manager)
-            # draw_text(screen, f"Lives: {getattr(player, 'lives', 3)}", ui_font, WHITE, SCREEN_WIDTH - 100, 10, asset_manager=asset_manager)
-            # draw_text(screen, f"Bombs: {getattr(player, 'bombs', 2)}", ui_font, WHITE, SCREEN_WIDTH - 100, 40, asset_manager=asset_manager)
-            # draw_text(screen, f"Power: {getattr(player, 'power', 0)}/128", ui_font, WHITE, 100, 40, asset_manager=asset_manager)
-            # draw_text(screen, f"Graze: {getattr(player, 'graze', 0)}", ui_font, WHITE, 100, 70, asset_manager=asset_manager)
+            # In-Game UI Text (Score, Lives, Bombs etc.)
+            score_text_str = f"Score: {getattr(player, 'score', 0):08d}"
+            lives_text_str = f"Lives: {getattr(player, 'lives', 3)}"
+            bombs_text_str = f"Bombs: {getattr(player, 'bombs', 2)}"
+
+            # Calculate appropriate center_x for alignment, assuming draw_text uses center_x
+            # For top-left: center_x = text_width / 2 + padding
+            # For top-right: center_x = SCREEN_WIDTH - (text_width / 2 + padding)
+            # Fallback if ui_font is None to prevent error, though it should be initialized
+            score_width = ui_font.size(score_text_str)[0] if ui_font else 200
+            lives_width = ui_font.size(lives_text_str)[0] if ui_font else 100
+            bombs_width = ui_font.size(bombs_text_str)[0] if ui_font else 100
+            
+            padding = 10
+
+            draw_text(screen, score_text_str, ui_font, WHITE, score_width // 2 + padding, 20, is_selected=False, asset_manager=asset_manager)
+            draw_text(screen, lives_text_str, ui_font, WHITE, SCREEN_WIDTH - (lives_width // 2 + padding), 20, is_selected=False, asset_manager=asset_manager)
+            draw_text(screen, bombs_text_str, ui_font, WHITE, SCREEN_WIDTH - (bombs_width // 2 + padding), 50, is_selected=False, asset_manager=asset_manager)
+            
+            power_text_str = f"Power: {getattr(player, 'power', 0)}/{getattr(player, 'max_power', 128)}"
+            power_width = ui_font.size(power_text_str)[0] if ui_font else 150 # For consistent positioning with Graze
+            draw_text(screen, power_text_str, ui_font, WHITE, power_width // 2 + padding, 50, is_selected=False, asset_manager=asset_manager) # Display Power
+
+            graze_text_str = f"Graze: {getattr(player, 'graze', 0)}"
+            graze_width = ui_font.size(graze_text_str)[0] if ui_font else 100
+            draw_text(screen, graze_text_str, ui_font, WHITE, graze_width // 2 + padding, 80, is_selected=False, asset_manager=asset_manager) # Display Graze
 
 
             if reisen_defeated_effect_timer > 0 and reisen_defeated_effect_timer % 20 < 10 : 
