@@ -56,6 +56,7 @@ KAGUYA_SPAWN_DELAY_AFTER_REISEN = 3000 # Kaguya appears 3s after Reisen's defeat
 kaguya_spawn_timer = 0 # Timer to track this delay
 kaguya_defeat_effect_timer = 0
 KAGUYA_DEFEAT_EFFECT_DURATION = 180 # 3 seconds for Kaguya's defeat
+kaguya_was_spawned_flag = False # Ensure it's defined globally
 
 # UI Font
 ui_font = None 
@@ -174,7 +175,8 @@ def main():
     global last_enemy_spawn_time
     global reisen_instance, reisen_defeated_effect_timer
     global kaguya_instance, kaguya_spawn_timer, kaguya_defeat_effect_timer
-    global ui_font, big_font, menu_font, menu_cursor_image # Add menu_font
+    global ui_font, big_font, menu_font, menu_cursor_image 
+    global kaguya_was_spawned_flag # Declare global for main() to modify
     
     game_start_time = 0 
     asset_manager = AssetManager() 
@@ -202,7 +204,7 @@ def main():
         global kaguya_instance, kaguya_spawn_timer, kaguya_defeat_effect_timer, kaguya_was_spawned_flag
         
         game_start_time = 0 
-        player = Player(asset_manager) # Pass asset_manager
+        player = Player(asset_manager) 
         all_player_bullets = player.bullets
         enemies.empty()
         items.empty()
@@ -212,10 +214,13 @@ def main():
         kaguya_instance = None
         kaguya_spawn_timer = 0
         kaguya_defeat_effect_timer = 0
-        # Ensure screen flash is also reset
-        global screen_flash_timer, screen_flash_alpha
+        kaguya_was_spawned_flag = False # Reset the flag here
+        
+        global screen_flash_timer, screen_flash_alpha, dialogue_message, dialogue_timer 
         screen_flash_timer = 0
         screen_flash_alpha = 0
+        dialogue_message = "" 
+        dialogue_timer = 0
 
 
     while running:
