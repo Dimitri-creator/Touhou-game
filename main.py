@@ -194,8 +194,9 @@ def main():
 
     def reset_game_state():
         nonlocal game_start_time, player, enemies, items, all_player_bullets, all_enemy_bullets
-        nonlocal reisen_instance, reisen_defeated_effect_timer
-        nonlocal kaguya_instance, kaguya_spawn_timer, kaguya_defeat_effect_timer
+        # These are module-level globals, modified within main() and reset here.
+        global reisen_instance, reisen_defeated_effect_timer
+        global kaguya_instance, kaguya_spawn_timer, kaguya_defeat_effect_timer, kaguya_was_spawned_flag
         
         game_start_time = 0 
         player = Player(asset_manager) # Pass asset_manager
