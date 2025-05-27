@@ -296,6 +296,16 @@ def main():
             
             if reisen_instance and reisen_instance.alive():
                 reisen_instance.update(player.rect.center) 
+                
+                # --- Reisen Spell Card Bonus - Micro-Step 1 ---
+                if reisen_instance and hasattr(reisen_instance, 'spell_card_bonus_achieved') and reisen_instance.spell_card_bonus_achieved:
+                    # --- Reisen Spell Card Bonus - Micro-Step 2 Actions ---
+                    if hasattr(player, 'add_score') and hasattr(reisen_instance, 'spell_card_bonus_value'):
+                        player.add_score(reisen_instance.spell_card_bonus_value)
+                    reisen_instance.spell_card_bonus_achieved = False # Reset the flag
+                    # --- End Reisen Spell Card Bonus - Micro-Step 2 Actions ---
+                # --- End Reisen Spell Card Bonus - Micro-Step 1 ---
+
                 for bullet in reisen_instance.bullets: all_enemy_bullets.add(bullet)
                 reisen_instance.bullets.empty()
             elif reisen_instance and not reisen_instance.alive() and reisen_defeated_effect_timer == 0:
@@ -396,35 +406,35 @@ def main():
             player_hitbox_rect = pygame.Rect(0,0, player.hitbox_radius*2, player.hitbox_radius*2)
             player_hitbox_rect.center = player.rect.center
             
-            # Graze detection
+            # Graze detection logic
             graze_interaction_radius = player.hitbox_radius + 15 
-            player_center_x = player.rect.centerx
-            player_center_y = player.rect.centery
-
-            for bullet in all_enemy_bullets:
-                if bullet.grazed_by_player: 
-                    continue
-                dist_sq = (bullet.rect.centerx - player_center_x)**2 + (bullet.rect.centery - player_center_y)**2
-                if dist_sq < (graze_interaction_radius ** 2):
-                    if not player_hitbox_rect.colliderect(bullet.rect):
-                        player.increment_graze() 
-                        bullet.grazed_by_player = True 
+            # player_center_x = player.rect.centerx 
+            # player_center_y = player.rect.centery 
             
-            # Actual Hit detection (after graze check)
+            # Actual Hit detection (and future graze logic will go above this)
             for bullet in all_enemy_bullets: 
+                # --- Start of Micro-Step 3 Graze Logic additions ---
+                if bullet.grazed_by_player:
+                    continue 
+                # --- End of Micro-Step 3 Graze Logic additions ---
+                
+                dist_sq = (bullet.rect.centerx - player.rect.centerx)**2 + (bullet.rect.centery - player.rect.centery)**2
+                
+                # --- Micro-Step 4: Add Hit Exclusion ---
+                if dist_sq < (graze_interaction_radius ** 2) and not player_hitbox_rect.colliderect(bullet.rect): 
+                    player.increment_graze()
+                    bullet.grazed_by_player = True
+                # --- End of Micro-Step 4 ---
+                
                 if player_hitbox_rect.colliderect(bullet.rect):
                     if player.show_hitbox: 
                         print("Player hit!")
                         bullet.kill() 
                         player.lives -= 1
                         
-                        # Trigger screen flash for player hit
-                        screen_flash_alpha = 180 # Reddish flash for damage (adjust color in rendering if needed)
+                        screen_flash_alpha = 180 
                         screen_flash_timer = PLAYER_HIT_FLASH_DURATION
-                        # If flash rendering uses a fixed color (e.g. white), this alpha will make it intense.
-                        # To make it red, the flash rendering logic needs to support different colors.
-                        # For now, a white flash of alpha 180 will be noticeable.
-
+                        
                         if not player.is_alive(): 
                             current_state = GAME_OVER 
                             current_menu_selection = 0 
