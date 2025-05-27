@@ -11,6 +11,7 @@ SCREEN_TITLE = "Touhou Project Clone"
 # Colors
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
+DARK_GRAY_BG = (50, 50, 60) # Background for gameplay
 
 # Game states
 TITLE_SCREEN = 0
@@ -39,9 +40,10 @@ from src.assets import AssetManager # Import AssetManager
 
 # Screen flash for player spell card & Kaguya phase transition
 screen_flash_alpha = 0
-screen_flash_duration = 15 
+screen_flash_duration = 15 # General duration for player spell card flash
 screen_flash_timer = 0
-PHASE_TRANSITION_FLASH_DURATION = 30 # Longer flash for phase transitions
+PHASE_TRANSITION_FLASH_DURATION = 30 
+PLAYER_HIT_FLASH_DURATION = 12 # Duration for player hit flash (e.g., 0.2 seconds at 60 FPS)
 
 # Enemy spawning
 enemy_spawn_delay = 2000 
@@ -122,7 +124,7 @@ def draw_options_screen_layout(asset_manager):
 
 def draw_game_over_layout(asset_manager, is_clear, player_score): # Added player_score
     screen.fill(BLACK)
-    message = "Game Clear!" if is_clear else "Game Over"
+    message = "Victory! The Incident is Resolved!" if is_clear else "Game Over" # Changed Game Clear message
     options = menu_options_game_clear if is_clear else menu_options_game_over
     
     draw_text(screen, message, big_font, WHITE, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 4, asset_manager=asset_manager)
@@ -415,21 +417,34 @@ def main():
                         print("Player hit!")
                         bullet.kill() 
                         player.lives -= 1
+                        
+                        # Trigger screen flash for player hit
+                        screen_flash_alpha = 180 # Reddish flash for damage (adjust color in rendering if needed)
+                        screen_flash_timer = PLAYER_HIT_FLASH_DURATION
+                        # If flash rendering uses a fixed color (e.g. white), this alpha will make it intense.
+                        # To make it red, the flash rendering logic needs to support different colors.
+                        # For now, a white flash of alpha 180 will be noticeable.
+
                         if not player.is_alive(): 
                             current_state = GAME_OVER 
                             current_menu_selection = 0 
                         # Add invincibility frames later
 
         # Render screen
-        screen.fill(BLACK) 
+        # Screen fill is now handled per state
+        # screen.fill(BLACK) 
 
         if current_state == TITLE_SCREEN:
+            screen.fill(BLACK) # Title screen remains black
             draw_title_screen_layout(asset_manager)
         elif current_state == DIFFICULTY_SELECT:
+            screen.fill(BLACK) # Difficulty select remains black
             draw_difficulty_select_layout(asset_manager)
         elif current_state == OPTIONS_SCREEN:
+            screen.fill(BLACK) # Options screen remains black
             draw_options_screen_layout(asset_manager)
         elif current_state == GAMEPLAY:
+            screen.fill(DARK_GRAY_BG) # Use new background for gameplay
             player.draw(screen) 
             enemies.draw(screen) 
             
@@ -511,7 +526,7 @@ def main():
             if not player.is_alive():
                  is_clear = False
 
-            draw_game_over_layout(asset_manager, is_clear, player.score) # Corrected call
+            draw_game_over_layout(asset_manager, is_clear, player.score)
 
         if screen_flash_timer > 0:
             flash_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA) 
