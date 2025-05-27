@@ -11,6 +11,7 @@ SCREEN_TITLE = "Touhou Project Clone"
 # Colors
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
+DARK_GRAY_BG = (50, 50, 60) # Background for gameplay
 
 # Game states
 TITLE_SCREEN = 0
@@ -39,9 +40,10 @@ from src.assets import AssetManager # Import AssetManager
 
 # Screen flash for player spell card & Kaguya phase transition
 screen_flash_alpha = 0
-screen_flash_duration = 15 
+screen_flash_duration = 15 # General duration for player spell card flash
 screen_flash_timer = 0
-PHASE_TRANSITION_FLASH_DURATION = 30 # Longer flash for phase transitions
+PHASE_TRANSITION_FLASH_DURATION = 30 
+PLAYER_HIT_FLASH_DURATION = 12 # Duration for player hit flash (e.g., 0.2 seconds at 60 FPS)
 
 # Enemy spawning
 enemy_spawn_delay = 2000 
@@ -122,7 +124,7 @@ def draw_options_screen_layout(asset_manager):
 
 def draw_game_over_layout(asset_manager, is_clear, player_score): # Added player_score
     screen.fill(BLACK)
-    message = "Game Clear!" if is_clear else "Game Over"
+    message = "Victory! The Incident is Resolved!" if is_clear else "Game Over" # Changed Game Clear message
     options = menu_options_game_clear if is_clear else menu_options_game_over
     
     draw_text(screen, message, big_font, WHITE, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 4, asset_manager=asset_manager)
@@ -294,6 +296,16 @@ def main():
             
             if reisen_instance and reisen_instance.alive():
                 reisen_instance.update(player.rect.center) 
+                
+                # --- Reisen Spell Card Bonus - Micro-Step 1 ---
+                if reisen_instance and hasattr(reisen_instance, 'spell_card_bonus_achieved') and reisen_instance.spell_card_bonus_achieved:
+                    # --- Reisen Spell Card Bonus - Micro-Step 2 Actions ---
+                    if hasattr(player, 'add_score') and hasattr(reisen_instance, 'spell_card_bonus_value'):
+                        player.add_score(reisen_instance.spell_card_bonus_value)
+                    reisen_instance.spell_card_bonus_achieved = False # Reset the flag
+                    # --- End Reisen Spell Card Bonus - Micro-Step 2 Actions ---
+                # --- End Reisen Spell Card Bonus - Micro-Step 1 ---
+
                 for bullet in reisen_instance.bullets: all_enemy_bullets.add(bullet)
                 reisen_instance.bullets.empty()
             elif reisen_instance and not reisen_instance.alive() and reisen_defeated_effect_timer == 0:
@@ -394,42 +406,55 @@ def main():
             player_hitbox_rect = pygame.Rect(0,0, player.hitbox_radius*2, player.hitbox_radius*2)
             player_hitbox_rect.center = player.rect.center
             
-            # Graze detection
+            # Graze detection logic
             graze_interaction_radius = player.hitbox_radius + 15 
-            player_center_x = player.rect.centerx
-            player_center_y = player.rect.centery
-
-            for bullet in all_enemy_bullets:
-                if bullet.grazed_by_player: 
-                    continue
-                dist_sq = (bullet.rect.centerx - player_center_x)**2 + (bullet.rect.centery - player_center_y)**2
-                if dist_sq < (graze_interaction_radius ** 2):
-                    if not player_hitbox_rect.colliderect(bullet.rect):
-                        player.increment_graze() 
-                        bullet.grazed_by_player = True 
+            # player_center_x = player.rect.centerx 
+            # player_center_y = player.rect.centery 
             
-            # Actual Hit detection (after graze check)
+            # Actual Hit detection (and future graze logic will go above this)
             for bullet in all_enemy_bullets: 
+                # --- Start of Micro-Step 3 Graze Logic additions ---
+                if bullet.grazed_by_player:
+                    continue 
+                # --- End of Micro-Step 3 Graze Logic additions ---
+                
+                dist_sq = (bullet.rect.centerx - player.rect.centerx)**2 + (bullet.rect.centery - player.rect.centery)**2
+                
+                # --- Micro-Step 4: Add Hit Exclusion ---
+                if dist_sq < (graze_interaction_radius ** 2) and not player_hitbox_rect.colliderect(bullet.rect): 
+                    player.increment_graze()
+                    bullet.grazed_by_player = True
+                # --- End of Micro-Step 4 ---
+                
                 if player_hitbox_rect.colliderect(bullet.rect):
                     if player.show_hitbox: 
                         print("Player hit!")
                         bullet.kill() 
                         player.lives -= 1
+                        
+                        screen_flash_alpha = 180 
+                        screen_flash_timer = PLAYER_HIT_FLASH_DURATION
+                        
                         if not player.is_alive(): 
                             current_state = GAME_OVER 
                             current_menu_selection = 0 
                         # Add invincibility frames later
 
         # Render screen
-        screen.fill(BLACK) 
+        # Screen fill is now handled per state
+        # screen.fill(BLACK) 
 
         if current_state == TITLE_SCREEN:
+            screen.fill(BLACK) # Title screen remains black
             draw_title_screen_layout(asset_manager)
         elif current_state == DIFFICULTY_SELECT:
+            screen.fill(BLACK) # Difficulty select remains black
             draw_difficulty_select_layout(asset_manager)
         elif current_state == OPTIONS_SCREEN:
+            screen.fill(BLACK) # Options screen remains black
             draw_options_screen_layout(asset_manager)
         elif current_state == GAMEPLAY:
+            screen.fill(DARK_GRAY_BG) # Use new background for gameplay
             player.draw(screen) 
             enemies.draw(screen) 
             
@@ -511,7 +536,7 @@ def main():
             if not player.is_alive():
                  is_clear = False
 
-            draw_game_over_layout(asset_manager, is_clear, player.score) # Corrected call
+            draw_game_over_layout(asset_manager, is_clear, player.score)
 
         if screen_flash_timer > 0:
             flash_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA) 
